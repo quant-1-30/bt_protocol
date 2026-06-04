@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "bt-protocol"
+version = "0.1.6"
+description = "revise orm"
+authors = ["hengxin.liu <hengxin.liu@inceptio.ai>"]
+readme = "README.md"
+build = "build_ext.py"
+
+include = [
+    "bt_protocol/serialize/pb/*_pb2.py",
+    "bt_protocol/serialize/pb/*_pb2_grpc.py",
+    "bt_protocol/serialize/pb/*.pyi",
+    { path = "bt_protocol/**/*.so", format = "wheel" },
+    { path = "bt_protocol/**/*.pyx" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.15"
+grpcio = "^1.71.0"
+sqlalchemy = "^2.0.47"
+
+[[tool.poetry.source]]
+name = "tuna"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+priority = "primary"  
+
+[[tool.poetry.source]]
+name = "devpi"
+url = "http://localhost:3141/bt_sdk/dev/+simple/"
+priority = "supplemental"
+
+#[tool.poetry.build]
+#pre-build-script = "scripts/pre_build.py"  # 构建前运行
+#post-build-script = "scripts/post_build.py" # 构建后运行
+
+[build-system]
+requires = ["poetry-core", "wheel", "pybind11", "cmake", "Cython>=3.0", "numpy", "setuptools", "grpcio-tools"] # used to execute build.py
+# build-backend =  "setuptools.build_meta" # 
+build-backend = "poetry.core.masonry.api" # for pure python / scikit-build-core for cmake
