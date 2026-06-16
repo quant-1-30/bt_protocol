@@ -29,7 +29,6 @@ class Base(DeclarativeBase):
 
 class Asset(Base):
 
-
     __tablename__ = "asset"
     __table_args__ = (
         PrimaryKeyConstraint("id", "sid", name="pk_id_sid"),
@@ -40,7 +39,11 @@ class Asset(Base):
     sid: Mapped[bytes] = mapped_column(LargeBinary, unique=True, nullable=False)
     name: Mapped[bytes] = mapped_column(LargeBinary, nullable=False) # String(32, collation="c")
     first_trading: Mapped[int] = mapped_column(Integer, nullable=False)
-    delist: Mapped[int] = mapped_column(Integer, default=0)
+
+    # delist or obsorted 
+    delist: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    merger: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+    ratio: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     adjustment: Mapped[List["Adjustment"]] = relationship("Adjustment", back_populates="asset", cascade="all, delete-orphan")
     rightment: Mapped[List["Rightment"]] = relationship("Rightment", back_populates="asset", cascade="all, delete-orphan")
@@ -61,9 +64,9 @@ class Adjustment(Base):
     report_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     register_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     ex_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
-    bonus_share: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True) # 送股
-    transfer: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True) # 转股
-    bonus: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True) # 股息
+    bonus_share: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0') # 送股
+    transfer: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0') # 转股
+    bonus: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0') # 股息
 
     asset: Mapped["Asset"] = relationship("Asset", back_populates="adjustment")
 
@@ -83,8 +86,8 @@ class Rightment(Base):
     report_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     register_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     ex_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
-    price: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True)
-    ratio: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True)
+    price: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0')
+    ratio: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0')
 
     asset: Mapped["Asset"] = relationship("Asset", back_populates="rightment")
 
