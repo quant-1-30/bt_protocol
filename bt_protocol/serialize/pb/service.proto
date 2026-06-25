@@ -20,7 +20,7 @@ service btDataFeed {
     rpc CalendarCall(QuoteRequest) returns (stream ArrowFrame);
     
     rpc InstrumentCall (QuoteRequest) returns (stream ArrowFrame);
-    rpc IndexStreamCall (QuoteRequest) returns (stream ArrowFrame);
+    rpc DailyStreamCall (QuoteRequest) returns (stream ArrowFrame);
     rpc TickStreamCall (QuoteRequest) returns (stream ArrowFrame);
     rpc CloseStreamCall (QuoteRequest) returns (stream ArrowFrame);
     rpc AdjustmentStreamCall (QuoteRequest) returns (stream ArrowFrame);

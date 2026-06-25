@@ -1,9 +1,10 @@
 class RpcTopic:
     Instrument = 0
     Tick = 1
-    Close = 2
-    Adjustment = 3
-    Rightment = 4
+    Daily = 2
+    Close = 3
+    Adjustment = 4
+    Rightment = 5
 
 class FactorTopic:
     Raw = 0

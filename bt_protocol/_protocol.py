@@ -28,10 +28,9 @@ class OrderBody(msgspec.Struct, frozen=True, tag="order"):
     order_type: int
     exec_type: int
     sizer_ratio: float
-    pricelimit: float
+    price: float
     created_dt: int
-    filler: bytes # oco / occ / smooth / likehood
-
+    filler: bytes # default / vwap / twap
     # order_id: bytes = msgspec.field(default_factory=fast_uuid4_bytes)
 
 
