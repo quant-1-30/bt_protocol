@@ -13,7 +13,7 @@ def compile_protos():
     project_root = Path(__file__).parent.absolute()
     
     pb_dir = project_root / "bt_protocol" / "serialize" / "pb"
-    proto_file = "service.proto"
+    proto_file = "bt_protocol_service.proto"
     proto_path = pb_dir / proto_file
 
     # google/protobuf/empty.proto
@@ -47,13 +47,13 @@ def compile_protos():
 
    
 def patch_grpc_imports(proto_dir):
-    grpc_path = os.path.join(proto_dir, "service_pb2_grpc.py")
+    grpc_path = os.path.join(proto_dir, "bt_protocol_service_pb2_grpc.py")
     if os.path.exists(grpc_path):
         with open(grpc_path, 'r') as f:
             content = f.read()
         # 'import bt_service_pb2 as bt__service__pb2' 
-        old_imp = "import service_pb2 as service__pb2"
-        new_imp = "from . import service_pb2 as service__pb2"
+        old_imp = "import bt_protocol_service_pb2 as bt__protocol__service__pb2"
+        new_imp = "from . import bt_protocol_service_pb2 as bt__protocol__service__pb2"
         if old_imp in content:
             with open(grpc_path, 'w') as f:
                 f.write(content.replace(old_imp, new_imp))

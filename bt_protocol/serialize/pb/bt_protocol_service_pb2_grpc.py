@@ -3,8 +3,8 @@
 import grpc
 import warnings
 
+from . import bt_protocol_service_pb2 as bt__protocol__service__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-from . import service_pb2 as service__pb2
 
 GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
@@ -19,7 +19,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in service_pb2_grpc.py depends on'
+        + ' but the generated code in bt_protocol_service_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,38 +37,38 @@ class btDataFeedStub:
         """
         self.CalendarCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/CalendarCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.InstrumentCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/InstrumentCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.DailyStreamCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/DailyStreamCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.TickStreamCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/TickStreamCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.CloseStreamCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/CloseStreamCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.AdjustmentStreamCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/AdjustmentStreamCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.RightStreamCall = channel.unary_stream(
                 '/bt.protocol.btDataFeed/RightStreamCall',
-                request_serializer=service__pb2.QuoteRequest.SerializeToString,
-                response_deserializer=service__pb2.ArrowFrame.FromString,
+                request_serializer=bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+                response_deserializer=bt__protocol__service__pb2.ArrowFrame.FromString,
                 _registered_method=True)
         self.HeartBeat = channel.unary_unary(
                 '/bt.protocol.btDataFeed/HeartBeat',
@@ -136,38 +136,38 @@ def add_btDataFeedServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'CalendarCall': grpc.unary_stream_rpc_method_handler(
                     servicer.CalendarCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'InstrumentCall': grpc.unary_stream_rpc_method_handler(
                     servicer.InstrumentCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'DailyStreamCall': grpc.unary_stream_rpc_method_handler(
                     servicer.DailyStreamCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'TickStreamCall': grpc.unary_stream_rpc_method_handler(
                     servicer.TickStreamCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'CloseStreamCall': grpc.unary_stream_rpc_method_handler(
                     servicer.CloseStreamCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'AdjustmentStreamCall': grpc.unary_stream_rpc_method_handler(
                     servicer.AdjustmentStreamCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'RightStreamCall': grpc.unary_stream_rpc_method_handler(
                     servicer.RightStreamCall,
-                    request_deserializer=service__pb2.QuoteRequest.FromString,
-                    response_serializer=service__pb2.ArrowFrame.SerializeToString,
+                    request_deserializer=bt__protocol__service__pb2.QuoteRequest.FromString,
+                    response_serializer=bt__protocol__service__pb2.ArrowFrame.SerializeToString,
             ),
             'HeartBeat': grpc.unary_unary_rpc_method_handler(
                     servicer.HeartBeat,
@@ -200,8 +200,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/CalendarCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -227,8 +227,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/InstrumentCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -254,8 +254,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/DailyStreamCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -281,8 +281,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/TickStreamCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -308,8 +308,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/CloseStreamCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -335,8 +335,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/AdjustmentStreamCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
@@ -362,8 +362,8 @@ class btDataFeed:
             request,
             target,
             '/bt.protocol.btDataFeed/RightStreamCall',
-            service__pb2.QuoteRequest.SerializeToString,
-            service__pb2.ArrowFrame.FromString,
+            bt__protocol__service__pb2.QuoteRequest.SerializeToString,
+            bt__protocol__service__pb2.ArrowFrame.FromString,
             options,
             channel_credentials,
             insecure,
