@@ -1,13 +1,17 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import msgspec
-from typing import List, Union, Any, Dict, Optional
+from typing import List, Union, Literal, Optional
 
+import msgspec
+
+# ---------------------------------------------------------------------------
+# Request bodies (tagged union dispatched by msgspec on the "type" field)
+# ---------------------------------------------------------------------------
 
 class QueryBody(msgspec.Struct, frozen=True, tag="query"):
     start_date: int
-    end_date: int 
+    end_date: int
     sid: List[bytes] = []
 
 
@@ -18,8 +22,13 @@ class RegisterBody(msgspec.Struct, frozen=True, tag="register"):
 
 
 class CashBody(msgspec.Struct, frozen=True, tag="cash"):
-    session: int 
+    session: int
     cash: float
+
+
+# Filler strategies for OrderBody. Literal keeps the wire format compact (a str)
+# while giving static type safety + msgspec validation on decode.
+OrderFiller = Literal["default", "vwap", "twap"]
 
 
 class OrderBody(msgspec.Struct, frozen=True, tag="order"):
@@ -30,17 +39,25 @@ class OrderBody(msgspec.Struct, frozen=True, tag="order"):
     sizer_ratio: float
     price: float
     created_dt: int
-    filler: bytes # default / vwap / twap
-    # order_id: bytes = msgspec.field(default_factory=fast_uuid4_bytes)
+    filler: OrderFiller = "default"  # default / vwap / twap
+
+
+# Union of all request bodies. None is allowed because Event defaults body=None.
+RequestBody = Union[QueryBody, RegisterBody, CashBody, OrderBody, None]
 
 
 class Event(msgspec.Struct, frozen=True):
     topic: int
     sub_topic: int = -1
     experiment_id: bytes = b""
-    body: Union[QueryBody, RegisterBody, CashBody, OrderBody] = None # tag to find body in Union strict
-    # body: EmptyBody = msgspec.field(default_factory=EmptyBody)
+    # NOTE: must include None to match the default value; otherwise the type
+    # annotation and the default contradict each other.
+    body: RequestBody = None
 
+
+# ---------------------------------------------------------------------------
+# Response bodies (tagged union)
+# ---------------------------------------------------------------------------
 
 class ExperimentBody(msgspec.Struct, frozen=True, tag="experiment"):
     experiment_id: bytes
@@ -57,7 +74,7 @@ class TradeBody(msgspec.Struct, frozen=True, tag="trade"):
 
 class PositionBody(msgspec.Struct, frozen=True, tag="position"):
     sid: bytes
-    datetime: int 
+    datetime: int
     size: int
     available: int
     cost_basis: float
@@ -75,10 +92,11 @@ class AccountBody(msgspec.Struct, frozen=True, tag="account"):
     margin: float
     experiment_id: bytes
 
+
 class SnapshotBody(msgspec.Struct, frozen=True, tag="snapshot"):
     account: AccountBody
     positions: List[PositionBody]
-    trades: Union[List[TradeBody], None] = None 
+    trades: Optional[List[TradeBody]] = None
 
 
 class Empty(msgspec.Struct, frozen=True, tag="empty"):
@@ -94,15 +112,16 @@ class Sentinel(msgspec.Struct, frozen=True, tag="sentinel"):
 
 
 BodyItem = Union[
-    ExperimentBody, 
-    TradeBody, 
-    PositionBody, 
+    ExperimentBody,
+    TradeBody,
+    PositionBody,
     AccountBody,
-    SnapshotBody, 
-    Empty, 
-    ErrMSg, 
-    Sentinel
+    SnapshotBody,
+    Empty,
+    ErrMSg,
+    Sentinel,
 ]
+
 
 class Resp(msgspec.Struct, frozen=True):
     body: Union[BodyItem, List[BodyItem], None] = None
@@ -110,7 +129,16 @@ class Resp(msgspec.Struct, frozen=True):
 
 ResponseTypes = List[Resp]
 
-# global
+
+# ---------------------------------------------------------------------------
+# Global codec instances.
+#
+# Encoders/decoders in msgspec are designed to be reused; constructing one
+# per message is wasteful. Keep a small set of typed codecs for the common
+# request/response shapes used across the codebase.
+# ---------------------------------------------------------------------------
+
 _ENCODER = msgspec.msgpack.Encoder()
 _DECODER = msgspec.msgpack.Decoder(type=Event)
-_RespDECODER = msgspec.msgpack.Decoder(type=ResponseTypes) # msgspec.msgpack.Decoder(type=Resp)
+_RespDECODER = msgspec.msgpack.Decoder(type=Resp)
+_RespListDECODER = msgspec.msgpack.Decoder(type=ResponseTypes)

@@ -3,9 +3,11 @@
  "name": "adjustment",
  "fields": [
      {"name": "sid", "type": "string"},
-     {"name": "bonus",  "type": ["int", "null"]},
-     {"name": "share_bonue", "type": ["int", "null"]}
-     {"name": "register_date", "type": ["string", "null"]}
-     {"name": "ex_date", "type": ["string", "null"]}
+     {"name": "report_date", "type": ["int", "null"]},
+     {"name": "register_date", "type": ["int", "null"]},
+     {"name": "ex_date", "type": ["int", "null"]},
+     {"name": "bonus_share", "type": ["double", "null"]},
+     {"name": "transfer", "type": ["double", "null"]},
+     {"name": "bonus", "type": ["double", "null"]}
  ]
 }

@@ -2,59 +2,48 @@ import os
 import glob
 
 
-def get_ext_modules(): # poetry build / backend setuptools
-    import pybind11
+def get_ext_modules():
+    """Return the list of Cython/pybind11 Extension modules to build.
+
+    Auto-discovers top-level ``*.pyx`` files so new extensions only need to be
+    dropped into the package tree. When nothing is found we return an empty list
+    *without* invoking ``cythonize`` -- calling ``cythonize([])`` is wasteful and
+    still requires Cython/numpy/pybind11 to be importable at build time.
+    """
+    pyx_sources = glob.glob("**/*.pyx", recursive=True)
+    if not pyx_sources:
+        return []
+
     import numpy as np
     from setuptools import Extension
     from Cython.Build import cythonize
 
-    # sources = glob.glob("**/*.pyx", recursive=True) # **/*.pyx 会搜索当前目录及其所有子目录下的 .pyx 文件
     current_dir = os.path.abspath(os.getcwd())
 
     extensions = [
-        # Extension(
-        #     name="bt_sdk.core.rpc.client", 
-        #     sources=["bt_sdk/core/rpc/client.pyx"],
-        #     include_dirs=[np.get_include(), current_dir],
-        #     language="c++",
-        #     extra_compile_args=["-O3", "-std=c++11"],
-        #         # "-Wno-unused-function",
-        #         # "-Wno-unused-variable",
-        #         # "-Wno-unused-but-set-variable",
-        #         # "-Wno-unused-parameter",
-        #         # "-Wno-sign-compare", # O3 极致优化，C++11 标准
-        # ),
-        # # Pybind11 Extension
-        # Extension(
-        #     "bt_sdk.core.lib.adj_factor",  
-        #     sources=[
-        #         "bt_sdk/core/lib/factor/src/factor.cpp",    
-        #         "bt_sdk/core/lib/factor/pybind_factor.cpp",  
-        #     ],
-        #     include_dirs=[
-        #         pybind11.get_include(), 
-        #         np.get_include(),     
-        #         "bt_sdk/core/lib/factor/include", 
-        #     ],
-        #     language="c++",              
-        #     extra_compile_args=["-std=c++17", "-O3"], 
-        # )
+        Extension(
+            name=os.path.splitext(os.path.relpath(p, current_dir))[0].replace(os.sep, "."),
+            sources=[p],
+            include_dirs=[np.get_include(), current_dir],
+            language="c++",
+            extra_compile_args=["-O3", "-std=c++17"],
+        )
+        for p in pyx_sources
     ]
-    
-    compiler_directives={
-        'language_level': "3",       # 使用 Python 3 语法
-        'boundscheck': False,        # 关闭数组越界检查（提升性能）
-        'wraparound': False,         # 关闭负索引支持（提升性能）
-        'initializedcheck': False,   # 关闭内存视图初始化检查
-        'cdivision': True,           # 开启 C 级别除法（不检查除零，极快）
+
+    compiler_directives = {
+        'language_level': "3",       # Python 3 syntax
+        'boundscheck': False,        # disable bounds checking (perf)
+        'wraparound': False,         # disable negative indexing (perf)
+        'initializedcheck': False,   # disable memoryview init checks
+        'cdivision': True,           # C-level division (no zero-division check)
     }
 
-    ext_modules = cythonize(
+    return cythonize(
         extensions,
         compiler_directives=compiler_directives,
-        annotate=False # .html 文件，方便查看代码是否实现C 级加速
-        )
-    return ext_modules
+        annotate=False,
+    )
 
 
 if __name__ == "__main__":
@@ -63,6 +52,6 @@ if __name__ == "__main__":
     setup(
         name="bt_protocol",
         packages=find_packages(),
-        include_package_data=True, 
-        ext_modules=get_ext_modules()
+        include_package_data=True,
+        ext_modules=get_ext_modules(),
     )

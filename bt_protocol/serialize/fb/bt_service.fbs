@@ -35,12 +35,12 @@ table Adjustment {
     interest: int (id: 5);
 }
 
-table  Rights {
+table Rights {
   sid: string (id: 0);
-  register_data: int (id: 1);
-  ex_date: int (id:2);
+  register_date: int (id: 1);  // fixed typo: was register_data
+  ex_date: int (id: 2);
   effective_date: int (id: 3);
-  price: int(id: 4);
+  price: int (id: 4);
   ratio: int (id: 5);
 }
 
@@ -51,14 +51,14 @@ table TickFrame {
   frame: [Line] (id: 1);
 }
 
-table  AdjFrame {
+table AdjFrame {
   ticker: int (id: 0);
-  adj: [AdjFrame] (id: 1);
+  adj: [Adjustment] (id: 1);  // fixed self-reference; element type is Adjustment
 }
 
-table  RightsFrame {
+table RightsFrame {
   ticker: int (id: 0);
-  rgts: [RightsFrame] (id: 1);
+  rgts: [Rights] (id: 1);  // fixed self-reference; element type is Rights
 }
 
 table QuoteRequest {
@@ -69,10 +69,10 @@ table QuoteRequest {
 
 // api
 
-rpc_service  btDataFeed {
+rpc_service btDataFeed {
     get_calendar (QuoteRequest): Calendar; 
     replay_assets (QuoteRequest): Instrument(streaming);
-    replay_datasets (QuoteRequest): TickerFrame(streaming);
+    replay_datasets (QuoteRequest): TickFrame(streaming);  // fixed: TickerFrame was undefined
     replay_adjs (QuoteRequest): AdjFrame(streaming);
     replay_rights (QuoteRequest): RightsFrame(streaming);
 }

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import inspect
 import datetime
 from typing import List
 from typing import Any, Dict, Type, Callable
@@ -142,7 +141,9 @@ class OrderBit(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # id: Mapped[int] = mapped_column(Integer, Sequence('vtorder_id_seq'), nullable=False)
-    order_id: Mapped[bytes] = mapped_column(ForeignKey("vtorder.order_id", ondelete="CASCADE"), unique=True)
+    # unique=True removed: a single order may produce multiple fills (order_bits).
+    # The (order_id, executed_dt) UniqueConstraint below already prevents duplicate fills.
+    order_id: Mapped[bytes] = mapped_column(ForeignKey("vtorder.order_id", ondelete="CASCADE"))
     # server_default=func.now()
     executed_dt: Mapped[BigInteger] = mapped_column(BigInteger, nullable=False)
     executed_price: Mapped[float] = mapped_column(Float, nullable=False)

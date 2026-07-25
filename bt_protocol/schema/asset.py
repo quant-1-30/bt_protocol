@@ -79,10 +79,14 @@ class Rightment(Base):
         {"extend_existing": True},
     )
 
+    # NOTE: `sid` is NOT part of the primary key here (consistent with Adjustment).
+    # A composite PK (id, sid) would overlap with the FK -> asset.sid and complicate
+    # cascade semantics. Use the single-column surrogate `id` as PK; the
+    # (sid, ex_date) UniqueConstraint already guarantees business uniqueness.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    sid: Mapped[bytes] = mapped_column(LargeBinary, 
-                                     ForeignKey("asset.sid", onupdate="CASCADE", ondelete="CASCADE"), 
-                                     nullable=False, primary_key=True, use_existing_column=True)
+    sid: Mapped[bytes] = mapped_column(LargeBinary,
+                                     ForeignKey("asset.sid", onupdate="CASCADE", ondelete="CASCADE"),
+                                     nullable=False, use_existing_column=True)
     report_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     register_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)
     ex_date: Mapped[int] = mapped_column(Integer, nullable=False, use_existing_column=True)

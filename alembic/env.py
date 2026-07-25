@@ -1,26 +1,44 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.meta import MetaData
 
 from alembic import context
+
+# Import the ORM models so their table definitions register on the Base.metadata
+# of each module. We keep both asset and trade metadata to support autogenerate.
+# NOTE: imported lazily inside try/except so that alembic commands still work
+# before the project dependencies (e.g. msgspec) are installed.
+try:
+    from bt_protocol.schema import asset as _asset_models  # noqa: F401
+    from bt_protocol.schema import trade as _trade_models  # noqa: F401
+
+    # Merge both DeclarativeBase.metadata into one target for autogenerate.
+    target_metadata = MetaData()
+    for _mod in (_asset_models, _trade_models):
+        for _tbl in _mod.Base.metadata.tables.values():
+            _tbl.tometadata(target_metadata)
+except Exception:  # pragma: no cover - fallback if models cannot be imported
+    target_metadata = None
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
+# Allow the database URL to be injected via the DATABASE_URL env var so that
+# credentials are not hardcoded in alembic.ini. Falls back to the ini value.
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -46,6 +64,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -53,7 +73,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

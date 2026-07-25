@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bt-protocol"
-version = "0.2.3"
-description = "revise proto name avoid duplicate"
+version = "0.2.4"
+description = "revise semantic bug with glm5.2"
 authors = ["hengxin.liu <hengxin.liu@inceptio.ai>"]
 readme = "README.md"
 build = "build_ext.py"
@@ -15,12 +15,13 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.15"
+python = ">=3.11,<3.14"
 grpcio = "^1.71.0"
 sqlalchemy = "^2.0.47"
 alembic = "^1.15.1"
 asyncpg = "^0.31.0"
 greenlet = "^3.5.1"
+msgspec = "^0.18.6"
 
 [[tool.poetry.source]]
 name = "tuna"
@@ -35,6 +36,15 @@ priority = "supplemental"
 #[tool.poetry.build]
 #pre-build-script = "scripts/pre_build.py"  # 构建前运行
 #post-build-script = "scripts/post_build.py" # 构建后运行
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
 
 [build-system]
 requires = ["poetry-core", "wheel", "pybind11", "cmake", "Cython>=3.0", "numpy", "setuptools", "grpcio-tools"] # used to execute build.py
