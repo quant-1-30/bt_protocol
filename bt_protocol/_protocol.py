@@ -81,6 +81,7 @@ class PositionBody(msgspec.Struct, frozen=True, tag="position"):
     pnl: float
     created_dt: int
     experiment_id: bytes
+    pnl_ratio: float = 0.0  
 
 
 class AccountBody(msgspec.Struct, frozen=True, tag="account"):
