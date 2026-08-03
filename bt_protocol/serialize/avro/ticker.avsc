@@ -9,7 +9,7 @@
      {"name": "high", "type": "int"},
      {"name": "low", "type": "int"},
      {"name": "close",  "type": "int"},
-     {"name": "volume", "type": "int"},
-     {"name": "amount", "type": "int"}
+     {"name": "volume", "type": "long"},
+     {"name": "amount", "type": "long"}
  ]
 }

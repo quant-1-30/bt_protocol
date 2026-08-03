@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 from typing import List
-from typing import Any, Dict, Type, Callable
+from typing import Any, Dict, Type, Callable, Tuple
 from decimal import Decimal
 from uuid import UUID
 
@@ -13,6 +13,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm import MapperProperty
 from sqlalchemy.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.inspection import inspect
 
@@ -23,25 +24,36 @@ class Base(DeclarativeBase):
 
     # id primary key and autoincrement will come to effect / not primary key , sequence will be used to implement effect of autoincrement
     # PrimaryKeyConstraint will ignore column setting -- autoincrement and PrimaryKeyConstraint name is unique
-    # backref在主类里面申明 / back_populates显式两个类申明 ;  default lazy="select" / "joined" / "selectin" 
+    # backref在主类里面申明 / back_populates显式两个类申明 ;  default lazy="raise" (force explicit eager loading)
     # one to many all, delete-orphan / many to many  all, delete  / uselist False -对一
-    
+
+    # Column-attribute cache populated lazily on first access; avoids repeated
+    # `inspect(self).mapper.column_attrs` introspection on the hot serialization
+    # path (high-concurrency batch snapshots etc.).
+    __columns__: Tuple[str, ...] = ()
+
     def to_dict(self, include_id=False) -> dict: # asyncpg support UUID
         result = {}
-        for c in inspect(self).mapper.column_attrs:
-            if not include_id and c.key == "id":
+        for c in self.__columns__ or self._refresh_columns():
+            if not include_id and c == "id":
                 continue
-            
-            value = getattr(self, c.key)
+
+            value = getattr(self, c)
             if value is None:
-                result[c.key] = None
+                result[c] = None
             elif isinstance(value, datetime.datetime):
-                result[c.key] = int(value.timestamp())
+                result[c] = int(value.timestamp())
             elif isinstance(value, Decimal):
-                result[c.key] = float(value)
+                result[c] = float(value)
             else:
-                result[c.key] = value
+                result[c] = value
         return result
+
+    @classmethod
+    def _refresh_columns(cls) -> Tuple[str, ...]:
+        cols = tuple(c.key for c in inspect(cls).mapper.column_attrs)
+        cls.__columns__ = cols
+        return cols
 
 
 class User(Base):
@@ -82,18 +94,18 @@ class Experiment(Base):
         )
     
     vtorders: Mapped[List["vtOrder"]] = relationship(
-        back_populates="experiment", cascade="all, delete-orphan"
+        back_populates="experiment", cascade="all, delete-orphan", lazy="raise"
     )
 
     vtpositions: Mapped[List["vtPosition"]] = relationship(
-        back_populates="experiment", cascade="all, delete-orphan"
+        back_populates="experiment", cascade="all, delete-orphan", lazy="raise"
     )
 
     account: Mapped["vtAccount"] = relationship(
-        back_populates="experiment", cascade="all, delete-orphan"
+        back_populates="experiment", cascade="all, delete-orphan", lazy="raise"
     )
 
-    def serialize(self, include_id=False) -> dict:
+    def serialize(self, include_id=False) -> Resp:
         body = ExperimentBody(experiment_id=self.experiment_id.bytes)
         return Resp(body=body)
 
@@ -120,14 +132,18 @@ class vtOrder(Base):
     __table_args__ = (
         # PrimaryKeyConstraint("id", "order_id", name="pk_order_id"),
         # UniqueConstraint("sid", "created_dt", "experiment_id", name="uq_order_sid_created_dt_experiment_id"), 
+        # Composite uniqueness retained for business semantics; single-column UQ
+        # added below so OrderBit.order_id can reference vtorder.order_id as a
+        # proper foreign key (PG requires the referenced column to be unique).
         UniqueConstraint("order_id", "experiment_id", name="uq_order_id_experiment_id"), 
+        UniqueConstraint("order_id", name="uq_vtorder_order_id"),
     )
 
     experiment: Mapped["Experiment"] = relationship(
-        back_populates="vtorders")
+        back_populates="vtorders", lazy="raise")
     
     order_bits: Mapped[List["OrderBit"]] = relationship(
-        back_populates="vtorder", cascade="all, delete-orphan"
+        back_populates="vtorder", cascade="all, delete-orphan", lazy="raise"
     )
 
     def __repr__(self) -> str:
@@ -155,9 +171,9 @@ class OrderBit(Base):
         UniqueConstraint("order_id", "executed_dt", name="uq_order_executed_dt"),
     )
 
-    vtorder: Mapped["vtOrder"] = relationship(back_populates="order_bits")
+    vtorder: Mapped["vtOrder"] = relationship(back_populates="order_bits", lazy="raise")
 
-    def serialize(self, include_id=False) -> dict:      
+    def serialize(self, include_id=False) -> Resp:
         body = TradeBody(order_id=self.order_id, executed_dt=self.executed_dt, executed_size=self.executed_size, 
                         executed_price=self.executed_price, comm=self.comm, isbuy=self.isbuy)
 
@@ -189,10 +205,10 @@ class vtPosition(Base):
     )
 
     experiment: Mapped["Experiment"] = relationship(
-        back_populates="vtpositions"
+        back_populates="vtpositions", lazy="raise"
     )
 
-    def serialize(self, include_id=False) -> dict:
+    def serialize(self, include_id=False) -> Resp:
         body = PositionBody(sid=self.sid, datetime=self.datetime, created_dt=self.created_dt, size=self.size,
                             available=self.available, cost_basis=self.cost_basis,
                             pnl=self.pnl, experiment_id=self.experiment_id.bytes)
@@ -210,11 +226,14 @@ class vtAccount(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # id: Mapped[int] = mapped_column(Integer, Sequence('account_id_seq'), nullable=False)
     datetime: Mapped[BigInteger] = mapped_column(BigInteger, nullable=False)
-    portfolio_value: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True)
-    cash: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True)
-    pnl: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True)
-    leverage: Mapped[float] = mapped_column(Float, default=1.0, nullable=False, use_existing_column=True)
-    margin: Mapped[float] = mapped_column(Float, default=0, nullable=False, use_existing_column=True)
+    # NOTE: `use_existing_column` removed — it is only meaningful for joined/single-
+    # table inheritance, which `vtAccount` does not use; on a standalone table it is
+    # semantic noise that can mislead autogenerate.
+    portfolio_value: Mapped[float] = mapped_column(Float, nullable=False)
+    cash: Mapped[float] = mapped_column(Float, nullable=False)
+    pnl: Mapped[float] = mapped_column(Float, nullable=False)
+    leverage: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    margin: Mapped[float] = mapped_column(Float, default=0, nullable=False)
 
     experiment_id: Mapped[UUID] = mapped_column(ForeignKey("experiment.experiment_id", ondelete="CASCADE"))
     
@@ -223,10 +242,10 @@ class vtAccount(Base):
         )
 
     experiment: Mapped["Experiment"] = relationship(
-        back_populates="account"
+        back_populates="account", lazy="raise"
     )
 
-    def serialize(self, include_id=False) -> dict:
+    def serialize(self, include_id=False) -> Resp:
         body = AccountBody(datetime=self.datetime, portfolio_value=self.portfolio_value,
                            cash=self.cash, pnl=self.pnl, leverage=self.leverage,
                            margin=self.margin, experiment_id=self.experiment_id.bytes)

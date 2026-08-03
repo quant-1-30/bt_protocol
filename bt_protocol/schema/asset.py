@@ -45,8 +45,8 @@ class Asset(Base):
     merger: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     ratio: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    adjustment: Mapped[List["Adjustment"]] = relationship("Adjustment", back_populates="asset", cascade="all, delete-orphan")
-    rightment: Mapped[List["Rightment"]] = relationship("Rightment", back_populates="asset", cascade="all, delete-orphan")
+    adjustment: Mapped[List["Adjustment"]] = relationship("Adjustment", back_populates="asset", cascade="all, delete-orphan", lazy="raise")
+    rightment: Mapped[List["Rightment"]] = relationship("Rightment", back_populates="asset", cascade="all, delete-orphan", lazy="raise")
 
 
 class Adjustment(Base):
@@ -68,7 +68,7 @@ class Adjustment(Base):
     transfer: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0') # 转股
     bonus: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0') # 股息
 
-    asset: Mapped["Asset"] = relationship("Asset", back_populates="adjustment")
+    asset: Mapped["Asset"] = relationship("Asset", back_populates="adjustment", lazy="raise")
 
 
 class Rightment(Base):
@@ -93,7 +93,7 @@ class Rightment(Base):
     price: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0')
     ratio: Mapped[float] = mapped_column(Float, nullable=False, use_existing_column=True, server_default='0')
 
-    asset: Mapped["Asset"] = relationship("Asset", back_populates="rightment")
+    asset: Mapped["Asset"] = relationship("Asset", back_populates="rightment", lazy="raise")
 
 
 # # --- Partitioning Support ---

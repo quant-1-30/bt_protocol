@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bt-protocol"
-version = "0.2.5"
-description = "update positionbody"
+version = "0.2.6"
+description = "revise core bug: relationship lazy=raise / selectin replace select"
 authors = ["hengxin.liu <hengxin.liu@inceptio.ai>"]
 readme = "README.md"
 build = "build_ext.py"
@@ -16,7 +16,9 @@ include = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
-grpcio = "^1.71.0"
+# Must align with the version pinned by the generated grpc stub
+# (bt_protocol_service_pb2_grpc.py enforces grpcio>=1.83.0 at import time).
+grpcio = ">=1.83.0,<2.0"
 sqlalchemy = "^2.0.47"
 alembic = "^1.15.1"
 asyncpg = "^0.31.0"
@@ -26,12 +28,7 @@ msgspec = "^0.18.6"
 [[tool.poetry.source]]
 name = "tuna"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
-priority = "primary"  
-
-[[tool.poetry.source]]
-name = "devpi"
-url = "http://localhost:3141/bt_sdk/dev/+simple/"
-priority = "supplemental"
+priority = "primary"
 
 #[tool.poetry.build]
 #pre-build-script = "scripts/pre_build.py"  # 构建前运行

@@ -192,3 +192,127 @@ def test_resp_list_roundtrip():
 def test_resp_none_body_roundtrip():
     back = _RespDECODER.decode(_ENCODER.encode(Resp()))
     assert back.body is None
+
+
+# ---------------------------------------------------------------------------
+# 1: gRPC generated stub must import cleanly (guards the grpcio>=1.83.0 pin)
+# ---------------------------------------------------------------------------
+
+def test_grpc_stub_imports_without_runtime_error():
+    # If grpcio < 1.83.0 is installed, the generated _pb2_grpc.py raises
+    # RuntimeError at import time. This test is the CI gate for F-2/D-1.
+    import bt_protocol.serialize.pb.bt_protocol_service_pb2_grpc as grpc_mod  # noqa: F401
+    assert hasattr(grpc_mod, "btDataFeedStub")
+
+
+# ---------------------------------------------------------------------------
+# 2: vtorder.order_id must have a single-column UniqueConstraint (C-1)
+# ---------------------------------------------------------------------------
+
+def test_vtorder_has_single_column_unique_on_order_id():
+    from bt_protocol.schema.trade import vtOrder
+    table = vtOrder.__table__
+    # Collect all UniqueConstraints where the only column is "order_id".
+    single_col_uqs = [
+        c for c in table.constraints
+        if type(c).__name__ == "UniqueConstraint"
+        and len(c.columns) == 1
+        and c.columns[0].name == "order_id"
+    ]
+    assert single_col_uqs, (
+        "vtorder.order_id must have a single-column UniqueConstraint so that "
+        "OrderBit.order_id can reference it as a foreign key (PostgreSQL rule)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3: all relationships must forbid implicit lazy loading (C-2)
+# ---------------------------------------------------------------------------
+
+def test_all_relationships_use_raise_or_explicit_lazy():
+    # Allowed strategies: raise (force explicit eager load) or explicit eager
+    # strategies. The default "select" is forbidden because it triggers sync IO
+    # in async contexts (greenlet leak) and N+1 queries.
+    allowed = {"raise", "selectin", "joined", "noload", "subquery", "write_only"}
+    from bt_protocol.schema import asset, trade
+
+    offenders = []
+    for mod in (asset, trade):
+        for mapper in mod.Base.registry.mappers:
+            for rel in mapper.relationships:
+                # SQLAlchemy evaluates `lazy` into a strategy; the raw value is
+                # kept on rel.argument or rel.lazy. We check the configured lazy.
+                if rel.lazy not in allowed:
+                    offenders.append(f"{mapper.class_.__name__}.{rel.key} lazy={rel.lazy!r}")
+    assert not offenders, f"relationships with forbidden lazy strategy: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# 4: alembic.ini must not contain hardcoded credentials (F-1)
+# ---------------------------------------------------------------------------
+
+def test_alembic_ini_has_no_hardcoded_credentials():
+    import configparser
+    ini_path = REPO_ROOT / "alembic.ini"
+    parser = configparser.ConfigParser()
+    parser.read(ini_path)
+    url = parser.get("alembic", "sqlalchemy.url", fallback="")
+    # Empty or placeholder only; no user:pass@host allowed.
+    assert url.strip() == "", (
+        "alembic.ini sqlalchemy.url must be empty; DATABASE_URL must be injected."
+    )
+    assert "postgres" not in url.lower() or url.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# 5: codec performance regression baseline (no per-message codec allocation)
+# ---------------------------------------------------------------------------
+
+def test_encode_decode_throughput_baseline():
+    # A very loose lower bound to catch gross regressions (e.g. accidentally
+    # constructing an Encoder per call). Numbers are conservative to stay
+    # stable across machines; the goal is to flag order-of-magnitude drops.
+    import time
+    ev = Event(topic=1, sub_topic=2, body=QueryBody(start_date=20200101, end_date=20201231, sid=[b"A", b"B"]))
+    n = 20000
+    t0 = time.perf_counter()
+    for _ in range(n):
+        blob = _ENCODER.encode(ev)
+        _DECODER.decode(blob)
+    elapsed = time.perf_counter() - t0
+    rps = n / elapsed
+    # Should easily exceed 50k round-trips/s on any modern machine; we assert
+    # a conservative 5k/s floor to avoid CI flakiness while still catching
+    # per-message codec construction (~100x slower).
+    assert rps > 5000, f"encode+decode throughput too low: {rps:.0f} round-trips/s"
+
+
+# ---------------------------------------------------------------------------
+# 6: serialize() return annotation must match actual Resp return (FN-1)
+# ---------------------------------------------------------------------------
+
+def test_serialize_return_annotation_is_resp():
+    import inspect
+    from bt_protocol.schema.trade import Experiment, OrderBit, vtPosition, vtAccount
+    from bt_protocol import Resp
+    for cls in (Experiment, OrderBit, vtPosition, vtAccount):
+        sig = inspect.signature(cls.serialize)
+        assert sig.return_annotation is Resp, (
+            f"{cls.__name__}.serialize return annotation must be Resp, "
+            f"got {sig.return_annotation!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# (extra): __version__ is exposed (D-5)
+# ---------------------------------------------------------------------------
+
+def test_package_exposes_version():
+    # __version__ must exist as a non-empty string. In a dev checkout that has
+    # not been `poetry install`-ed the value falls back to "0.0.0+unknown",
+    # which is acceptable for this guard (the real version check belongs to
+    # the packaging/CI stage).
+    import bt_protocol
+    assert hasattr(bt_protocol, "__version__")
+    assert isinstance(bt_protocol.__version__, str)
+    assert bt_protocol.__version__

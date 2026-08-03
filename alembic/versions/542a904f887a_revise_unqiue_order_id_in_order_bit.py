@@ -18,12 +18,12 @@ import sqlalchemy as sa
 # revision identifiers, used by Alembic.
 revision: str = '542a904f887a'
 down_revision: Union[str, None] = '30aae0684ec1'
-branch_labels: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None 
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_constraint('order_bit_order_id_key', 'order_bit', type_='unique') # type_='foreignkey'
+    op.execute('ALTER TABLE order_bit DROP CONSTRAINT IF EXISTS order_bit_order_id_key')
     
 
 def downgrade() -> None:

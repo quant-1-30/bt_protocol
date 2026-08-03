@@ -2,17 +2,18 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import MetaData, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from sqlalchemy.meta import MetaData
 
 from alembic import context
 
 # Import the ORM models so their table definitions register on the Base.metadata
 # of each module. We keep both asset and trade metadata to support autogenerate.
-# NOTE: imported lazily inside try/except so that alembic commands still work
-# before the project dependencies (e.g. msgspec) are installed.
+# NOTE: only ImportError is swallowed (and re-raised with a clear message) so
+# that real bugs in the models are not masked. A failure here MUST surface,
+# otherwise `alembic revision --autogenerate` would silently emit an empty
+# migration.
 try:
     from bt_protocol.schema import asset as _asset_models  # noqa: F401
     from bt_protocol.schema import trade as _trade_models  # noqa: F401
@@ -22,18 +23,28 @@ try:
     for _mod in (_asset_models, _trade_models):
         for _tbl in _mod.Base.metadata.tables.values():
             _tbl.tometadata(target_metadata)
-except Exception:  # pragma: no cover - fallback if models cannot be imported
-    target_metadata = None
+except ImportError as _e:  # pragma: no cover - models unavailable
+    raise RuntimeError(
+        "bt_protocol ORM models could not be imported; alembic autogenerate "
+        "is disabled. Install the project (poetry install) and retry. "
+        f"Original error: {_e}"
+    ) from _e
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# Allow the database URL to be injected via the DATABASE_URL env var so that
-# credentials are not hardcoded in alembic.ini. Falls back to the ini value.
+# SECURITY: credentials MUST be injected via the DATABASE_URL env var.
+# alembic.ini intentionally has an empty sqlalchemy.url. Refuse to run if the
+# variable is missing so that no implicit/hardcoded fallback is ever used.
 _db_url = os.getenv("DATABASE_URL")
-if _db_url:
-    config.set_main_option("sqlalchemy.url", _db_url)
+if not _db_url:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is not set. "
+        "alembic.ini no longer stores credentials; set DATABASE_URL before "
+        "running any alembic command."
+    )
+config.set_main_option("sqlalchemy.url", _db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

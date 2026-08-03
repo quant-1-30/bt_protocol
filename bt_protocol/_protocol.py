@@ -12,7 +12,11 @@ import msgspec
 class QueryBody(msgspec.Struct, frozen=True, tag="query"):
     start_date: int
     end_date: int
-    sid: List[bytes] = []
+    # `default_factory=list` is the idiomatic msgspec way to express a mutable
+    # default; although msgspec currently copies the default per instance, using
+    # a bare `[]` is an anti-pattern that would become a real shared-state leak
+    # if the type were ever ported to `dataclass`.
+    sid: List[bytes] = msgspec.field(default_factory=list)
 
 
 class RegisterBody(msgspec.Struct, frozen=True, tag="register"):
@@ -143,3 +147,43 @@ _ENCODER = msgspec.msgpack.Encoder()
 _DECODER = msgspec.msgpack.Decoder(type=Event)
 _RespDECODER = msgspec.msgpack.Decoder(type=Resp)
 _RespListDECODER = msgspec.msgpack.Decoder(type=ResponseTypes)
+
+
+# ---------------------------------------------------------------------------
+# Public codec helpers.
+#
+# The module-level `_ENCODER` / `_DECODER` singletons are thread-safe and are
+# the recommended way to reuse msgspec codecs. To avoid leaking the underscore
+# prefixed (conventionally private) symbols through the public API, we expose a
+# small set of typed functions that delegate to those singletons. Callers
+# should prefer these wrappers.
+# ---------------------------------------------------------------------------
+
+def encode_event(event: Event) -> bytes:
+    """Encode an :class:`Event` request to msgpack bytes (thread-safe)."""
+    return _ENCODER.encode(event)
+
+
+def decode_event(data: bytes) -> Event:
+    """Decode msgpack bytes into an :class:`Event` request (thread-safe)."""
+    return _DECODER.decode(data)
+
+
+def encode_resp(resp: Resp) -> bytes:
+    """Encode a single :class:`Resp` response to msgpack bytes (thread-safe)."""
+    return _ENCODER.encode(resp)
+
+
+def decode_resp(data: bytes) -> Resp:
+    """Decode msgpack bytes into a single :class:`Resp` response (thread-safe)."""
+    return _RespDECODER.decode(data)
+
+
+def encode_resp_list(resps: ResponseTypes) -> bytes:
+    """Encode a list of :class:`Resp` objects to msgpack bytes (thread-safe)."""
+    return _ENCODER.encode(resps)
+
+
+def decode_resp_list(data: bytes) -> ResponseTypes:
+    """Decode msgpack bytes into a list of :class:`Resp` objects (thread-safe)."""
+    return _RespListDECODER.decode(data)
