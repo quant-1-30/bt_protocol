@@ -41,7 +41,7 @@ poetry run python -c "from bt_protocol import Event, __version__; print(__versio
 
 ```bash
 poetry run pytest -v
-# 26 passed in 0.4s
+# 34 passed in 0.4s
 ```
 
 ### 2.4 首次数据库迁移
@@ -62,13 +62,14 @@ poetry run alembic upgrade trade@head
 |------|------|----------|
 | 运行时核心 | `msgspec` | `^0.18.6` |
 | gRPC | `grpcio` | `>=1.83.0,<2.0` |
+| Protobuf | `protobuf` | `>=7.35.1,<8.0` |
 | ORM | `sqlalchemy` | `^2.0.47` |
 | 迁移 | `alembic` | `^1.15.1` |
 | 异步 PG 驱动 | `asyncpg` | `^0.31.0` |
 | greenlet | `greenlet` | `^3.5.1` |
 | 构建期 | `grpcio-tools`, `Cython`, `numpy`, `pybind11`, `cmake` | 仅 `[build-system]` |
 
-> **gRPC 版本说明**：生成代码 `bt_protocol_service_pb2_grpc.py` 在 import 时强制校验 `grpcio >= 1.83.0`。若消费方安装了更旧版本，import 阶段即 `RuntimeError`。
+> **gRPC / Protobuf 版本说明**：生成代码 `bt_protocol_service_pb2.py` 与 `bt_protocol_service_pb2_grpc.py` 在 import 时强制校验 `protobuf >= 7.35.1,<8.0`（upb 高性能 C 内核）与 `grpcio >= 1.83.0`。若消费方安装了更旧版本，import 阶段即报错。
 
 **Poetry 源**：
 
@@ -188,7 +189,7 @@ back = decode_resp(blob)
 
 | 模型 | 表名 | 关键约束 |
 |------|------|----------|
-| `User` | `user_info` | 复合 PK `(id, user_id, client_id)`；`client_id` UUID `gen_random_uuid()` |
+| `User` | `user_info` | PK `id`；UQ `(user_id, client_id)`；`client_id` UUID `gen_random_uuid()` |
 | `Experiment` | `experiment` | PK `id`；UQ `(client_id, strategy, extra_info)`；`experiment_id` UUID |
 | `vtOrder` | `vtorder` | PK `id`；UQ `(order_id, experiment_id)`；UQ `order_id`（单列，供 FK 引用） |
 | `OrderBit` | `order_bit` | PK `id`；FK `order_id → vtorder.order_id`；UQ `(order_id, executed_dt)` |
@@ -262,10 +263,12 @@ trade 分支:
     └─ 30aae0684ec1 (branch='trade')  ← drop old UQ + create uq_order_id_experiment_id
          └─ 542a904f887a              ← drop order_bit_order_id_key (IF EXISTS)
               └─ 95eb41d7a5ac          ← add created_dt on vtposition
-                   └─ f1a2b3c4d5e6 (head)  ← CREATE UNIQUE INDEX IF NOT EXISTS uq_vtorder_order_id
+                   └─ f1a2b3c4d5e6      ← CREATE UNIQUE INDEX IF NOT EXISTS uq_vtorder_order_id
+                        └─ a7b8c9d0e1f2 ← add realized_pnl on vtposition
+                             └─ b8c9d0e1f2a3 (head) ← align experiment_id indexes, uq_vtorder_order_id constraint & created_dt NOT NULL
 
 asset 分支:
-  70e341d5e7a8 (None)
+  70e341d5e7a8 (None, branch='asset')
     └─ 79a49578303d (head)
 ```
 
@@ -319,20 +322,22 @@ poetry run alembic downgrade -1       # 回退一步
 
 ## 10. 测试与开发
 
-### 10.1 测试覆盖（26 用例）
+### 10.1 测试覆盖（34 用例）
 
 | 类别 | 用例 | 说明 |
 |------|------|------|
 | Avro schema | 4 | `.avsc` 文件存在 + JSON 合法 |
 | 公开 API | 2 | 导入完整性 + `__version__` |
-| msgspec round-trip | 8 | Event 请求 + Resp 各 Body |
-| gRPC 导入 | 1 | `_pb2_grpc` 在 `grpcio>=1.83.0` 下不报错 |
+| msgspec round-trip | 12 | Event 请求 + Resp 各 Body |
+| gRPC 导入 | 1 | `_pb2_grpc` 在 `grpcio>=1.83.0` / `protobuf>=7.35.1,<8.0` 下不报错 |
 | FK 唯一性 | 1 | `vtorder.order_id` 单列 UQ 存在 |
 | lazy 策略 | 1 | 所有 `relationship` 禁止默认 `select` |
 | 凭据检查 | 1 | `alembic.ini` 不含明文 |
 | 吞吐基准 | 1 | encode+decode > 5000 round-trips/s |
 | 类型契约 | 1 | `serialize()` 返回注解为 `Resp` |
 | Resp 列表 | 2 | 列表 round-trip + None body |
+| 关系、主键与索引 | 3 | `Experiment.account` 集合映射、`User`/`Experiment` 单列 `id` PK、`experiment_id` 索引 |
+| 迁移、模板与序列化回归 | 5 | 三分支解析、`28cdc82de517` 守卫、`asset` 缓存、`realized_pnl` / `pnl_ratio` 恢复、DuckDB 过滤守卫 |
 
 ```bash
 poetry run pytest -v

@@ -18,30 +18,30 @@ table Instrument {
 
 table Line {
   sid: string (id: 0);
-  open: int (id: 1);
-  high: int (id: 2);
-  low: int (id: 3);
-  close: int (id: 4);
-  volume: int (id: 5);
-  amount: int (id: 6);
+  open: double (id: 1);
+  high: double (id: 2);
+  low: double (id: 3);
+  close: double (id: 4);
+  volume: long (id: 5);
+  amount: double (id: 6);
 }
 
 table Adjustment {
     sid: string (id: 0);
     register_date: int (id: 1);
     ex_date: int (id: 2);
-    share: int (id: 3);
-    transfer: int (id: 4);
-    interest: int (id: 5);
+    share: double (id: 3);
+    transfer: double (id: 4);
+    interest: double (id: 5);
 }
 
 table Rights {
   sid: string (id: 0);
   register_date: int (id: 1);  // fixed typo: was register_data
   ex_date: int (id: 2);
-  effective_date: int (id: 3);
-  price: int (id: 4);
-  ratio: int (id: 5);
+  report_date: int (id: 3);    // aligned with ORM Rightment.report_date
+  price: double (id: 4);
+  ratio: double (id: 5);
 }
 
 // struct frame 

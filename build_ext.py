@@ -1,12 +1,14 @@
 import os
 import sys
-import glob
-
-import subprocess
 from pathlib import Path
 from grpc_tools import protoc
 import importlib.resources as res
 from setup import get_ext_modules
+
+
+_PROJECT_ROOT = Path(__file__).resolve().parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 
 def compile_protos():
@@ -49,14 +51,20 @@ def compile_protos():
 def patch_grpc_imports(proto_dir):
     grpc_path = os.path.join(proto_dir, "bt_protocol_service_pb2_grpc.py")
     if os.path.exists(grpc_path):
-        with open(grpc_path, 'r') as f:
+        with open(grpc_path, 'r', encoding='utf-8') as f:
             content = f.read()
         # 'import bt_service_pb2 as bt__service__pb2' 
         old_imp = "import bt_protocol_service_pb2 as bt__protocol__service__pb2"
         new_imp = "from . import bt_protocol_service_pb2 as bt__protocol__service__pb2"
-        if old_imp in content:
-            with open(grpc_path, 'w') as f:
-                f.write(content.replace(old_imp, new_imp))
+        if old_imp in content and new_imp not in content:
+            content = content.replace(old_imp, new_imp)
+            with open(grpc_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        if new_imp not in content:
+            raise RuntimeError(
+                f"Failed to patch relative import in {grpc_path}; "
+                f"expected {new_imp!r} after patching."
+            )
 
 def build(setup_kwargs): # poetry build / backend setuptools
     compile_protos()

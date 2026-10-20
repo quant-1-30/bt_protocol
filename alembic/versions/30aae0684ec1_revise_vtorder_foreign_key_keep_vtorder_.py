@@ -1,7 +1,7 @@
 """revise vtorder foreign key keep vtorder_id
 
 Revision ID: 30aae0684ec1
-Revises: 616545e13eb4
+Revises: a0b1c2d3e4f5
 Create Date: 2026-05-07 07:57:36.374978
 
 """
@@ -13,7 +13,6 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '30aae0684ec1'
-# down_revision: Union[str, None] = '616545e13eb4'
 down_revision: Union[str, None] = 'a0b1c2d3e4f5'
 branch_labels: Union[str, Sequence[str], None] = ('trade',)  
 depends_on: Union[str, Sequence[str], None] = None

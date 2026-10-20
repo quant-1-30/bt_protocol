@@ -5,11 +5,11 @@
      {"name": "sid", "type": "string"},
      {"name": "ticker", "type": ["string", "null"]},
      {"name": "date", "type": ["string", "null"]},
-     {"name": "open", "type": "int"},
-     {"name": "high", "type": "int"},
-     {"name": "low", "type": "int"},
-     {"name": "close",  "type": "int"},
+     {"name": "open", "type": "double"},
+     {"name": "high", "type": "double"},
+     {"name": "low", "type": "double"},
+     {"name": "close",  "type": "double"},
      {"name": "volume", "type": "long"},
-     {"name": "amount", "type": "long"}
+     {"name": "amount", "type": "double"}
  ]
 }

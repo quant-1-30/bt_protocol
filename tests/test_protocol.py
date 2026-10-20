@@ -38,11 +38,14 @@ from bt_protocol import (
     SnapshotBody,
     Empty,
     ErrMSg,
+    ErrMsg,
     Sentinel,
-    _ENCODER,
-    _DECODER,
-    _RespDECODER,
-    _RespListDECODER,
+    encode_event,
+    decode_event,
+    encode_resp,
+    decode_resp,
+    encode_resp_list,
+    decode_resp_list,
 )
 from bt_protocol._protocol import BodyItem
 
@@ -92,8 +95,8 @@ def test_public_api_importable():
 
 def test_event_roundtrip_query():
     ev = Event(topic=1, sub_topic=2, body=QueryBody(start_date=20200101, end_date=20201231, sid=[b"A", b"B"]))
-    blob = _ENCODER.encode(ev)
-    back = _DECODER.decode(blob)
+    blob = encode_event(ev)
+    back = decode_event(blob)
     assert isinstance(back, Event)
     assert back.topic == 1
     assert back.sub_topic == 2
@@ -106,7 +109,7 @@ def test_event_body_defaults_to_none_and_decodes():
     # Event with no body must still encode/decode (this used to break because
     # the Union did not include None).
     ev = Event(topic=0)
-    back = _DECODER.decode(_ENCODER.encode(ev))
+    back = decode_event(encode_event(ev))
     assert back.body is None
 
 
@@ -116,7 +119,7 @@ def test_event_roundtrip_order_with_default_filler():
         sizer_ratio=0.5, price=10.0, created_dt=20200101,
     )
     ev = Event(topic=5, body=ob)
-    back = _DECODER.decode(_ENCODER.encode(ev))
+    back = decode_event(encode_event(ev))
     assert isinstance(back.body, OrderBody)
     # default filler must round-trip
     assert back.body.filler == "default"
@@ -128,7 +131,7 @@ def test_event_roundtrip_register_and_cash():
         CashBody(session=1, cash=10000.0),
     ):
         ev = Event(topic=1, body=body)
-        back = _DECODER.decode(_ENCODER.encode(ev))
+        back = decode_event(encode_event(ev))
         assert isinstance(back.body, type(body))
 
 
@@ -169,7 +172,7 @@ def _trade_body() -> TradeBody:
 ], ids=lambda v: type(v).__name__)
 def test_resp_roundtrip_each_body(body: BodyItem):
     resp = Resp(body=body)
-    back = _RespDECODER.decode(_ENCODER.encode(resp))
+    back = decode_resp(encode_resp(resp))
     assert isinstance(back, Resp)
     assert isinstance(back.body, type(body))
 
@@ -180,8 +183,8 @@ def test_resp_list_roundtrip():
         Resp(body=ErrMSg(error="x")),
         Resp(body=[Empty(), Sentinel()]),  # body as a list of items
     ]
-    blob = _ENCODER.encode(resps)
-    back = _RespListDECODER.decode(blob)
+    blob = encode_resp_list(resps)
+    back = decode_resp_list(blob)
     assert len(back) == 3
     assert isinstance(back[0].body, Empty)
     assert isinstance(back[1].body, ErrMSg)
@@ -190,7 +193,7 @@ def test_resp_list_roundtrip():
 
 
 def test_resp_none_body_roundtrip():
-    back = _RespDECODER.decode(_ENCODER.encode(Resp()))
+    back = decode_resp(encode_resp(Resp()))
     assert back.body is None
 
 
@@ -277,8 +280,8 @@ def test_encode_decode_throughput_baseline():
     n = 20000
     t0 = time.perf_counter()
     for _ in range(n):
-        blob = _ENCODER.encode(ev)
-        _DECODER.decode(blob)
+        blob = encode_event(ev)
+        decode_event(blob)
     elapsed = time.perf_counter() - t0
     rps = n / elapsed
     # Should easily exceed 50k round-trips/s on any modern machine; we assert
@@ -316,3 +319,146 @@ def test_package_exposes_version():
     assert hasattr(bt_protocol, "__version__")
     assert isinstance(bt_protocol.__version__, str)
     assert bt_protocol.__version__
+
+
+# ---------------------------------------------------------------------------
+# 7: Experiment.account relationship must be a list (one-to-many)
+# ---------------------------------------------------------------------------
+
+def test_experiment_account_relationship_is_collection():
+    from bt_protocol.schema.trade import Experiment
+    from sqlalchemy.inspection import inspect as sa_inspect
+    mapper = sa_inspect(Experiment)
+    rel = mapper.relationships["account"]
+    assert rel.uselist is True, (
+        "Experiment.account must be a one-to-many collection (uselist=True) "
+        "because vtAccount is keyed by (datetime, experiment_id)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 8: Foreign keys to experiment.experiment_id must have left-prefix indexes
+# ---------------------------------------------------------------------------
+
+def test_experiment_id_foreign_keys_are_indexed():
+    from bt_protocol.schema.trade import vtOrder, vtPosition, vtAccount
+    for model in (vtOrder, vtPosition, vtAccount):
+        table = model.__table__
+        has_leading_index = any(
+            len(idx.columns) >= 1 and list(idx.columns)[0].name == "experiment_id"
+            for idx in table.indexes
+        )
+        assert has_leading_index, (
+            f"{table.name}.experiment_id must have an index with experiment_id "
+            "as the leading column to avoid full-table scans on CASCADE deletes."
+        )
+
+
+# ---------------------------------------------------------------------------
+# 9: Alembic migration chain integrity & regression guards
+# ---------------------------------------------------------------------------
+
+def test_alembic_script_directory_has_expected_branches():
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    cfg = Config(str(REPO_ROOT / "alembic.ini"))
+    script = ScriptDirectory.from_config(cfg)
+    heads = set(script.get_heads())
+    # Three branches: feed (616545e13eb4), asset (79a49578303d), trade (b8c9d0e1f2a3)
+    assert {"616545e13eb4", "79a49578303d", "b8c9d0e1f2a3"}.issubset(heads)
+    # Verify branch labels resolve cleanly
+    assert script.get_revision("feed@head").revision == "616545e13eb4"
+    assert script.get_revision("asset@head").revision == "79a49578303d"
+    assert script.get_revision("trade@head").revision == "b8c9d0e1f2a3"
+
+
+def test_migration_28cdc82de517_does_not_corrupt_asset_name():
+    mig_path = (
+        REPO_ROOT
+        / "alembic"
+        / "versions"
+        / "28cdc82de517_change_sid_and_name_from_str_to_bytes.py"
+    )
+    src = mig_path.read_text()
+    assert 'alter_column("asset", "name"' in src
+    assert "postgresql_using='name::bytea'" in src
+    assert "'assets'" not in src
+
+
+# ---------------------------------------------------------------------------
+# 10: asset.Base column cache & no stray use_existing_column
+# ---------------------------------------------------------------------------
+
+def test_asset_models_to_dict_cache_and_clean_columns():
+    from bt_protocol.schema.asset import Asset, Adjustment, Rightment
+    a = Asset(sid=b"000001.SZ", name=b"PingAn", first_trading=19910403)
+    d = a.serialize()
+    assert d["sid"] == b"000001.SZ"
+    assert "id" not in d
+    assert Asset.__columns__, "Asset.__columns__ cache should be populated"
+
+    adj = Adjustment(
+        sid=b"000001.SZ", report_date=20200101, register_date=20200102,
+        ex_date=20200103, bonus_share=0.0, transfer=0.0, bonus=1.0,
+    )
+    assert adj.to_dict()["bonus"] == 1.0
+    rgt = Rightment(
+        sid=b"000001.SZ", report_date=20200101, register_date=20200102,
+        ex_date=20200103, price=5.0, ratio=0.2,
+    )
+    assert rgt.to_dict()["price"] == 5.0
+
+
+# ---------------------------------------------------------------------------
+# 11: PositionBody realized_pnl roundtrip & vtPosition.serialize
+# ---------------------------------------------------------------------------
+
+def test_vtposition_serialize_includes_realized_pnl():
+    import uuid
+    from bt_protocol.schema.trade import vtPosition, Experiment, vtAccount
+    uid = uuid.uuid4()
+    pos = vtPosition(
+        sid=b"000001.SZ", datetime=20260101, created_dt=20260101,
+        size=100, available=100, cost_basis=10.0, pnl=50.0,
+        realized_pnl=125.5, experiment_id=uid,
+    )
+    resp = pos.serialize()
+    back = decode_resp(encode_resp(resp))
+    assert isinstance(back.body, PositionBody)
+    assert back.body.realized_pnl == pytest.approx(125.5)
+    assert back.body.pnl == pytest.approx(50.0)
+    # pnl_ratio = (50.0 + 125.5) / (100 * 10.0) = 0.1755
+    assert back.body.pnl_ratio == pytest.approx(0.1755)
+
+    # Unflushed ORM instances (experiment_id=None) must not raise AttributeError
+    unflushed_exp = Experiment(strategy="s", extra_info="{}")
+    assert unflushed_exp.serialize().body.experiment_id == b""
+    unflushed_acct = vtAccount(
+        datetime=20260101, portfolio_value=1.0, cash=1.0, pnl=0.0,
+        leverage=1.0, margin=0.0,
+    )
+    assert unflushed_acct.serialize().body.experiment_id == b""
+    assert ErrMsg is ErrMSg
+
+
+# ---------------------------------------------------------------------------
+# 12: DuckDB template close > 0 filter placement guard
+# ---------------------------------------------------------------------------
+
+def test_duckdb_templates_close_filter_placement():
+    from bt_protocol.template.duckdb_template import (
+        _VALID_CLOSE_FILTER,
+        CLOSE_TEMPLATE,
+        DAILY_TEMPLATE,
+        TICK_TEMPLATE,
+    )
+    assert _VALID_CLOSE_FILTER not in TICK_TEMPLATE
+    assert _VALID_CLOSE_FILTER in CLOSE_TEMPLATE
+    assert _VALID_CLOSE_FILTER in DAILY_TEMPLATE
+
+
+def test_user_and_experiment_single_column_id_primary_key():
+    from bt_protocol.schema.trade import Experiment, User
+    assert [c.name for c in User.__table__.primary_key.columns] == ["id"]
+    assert [c.name for c in Experiment.__table__.primary_key.columns] == ["id"]
+

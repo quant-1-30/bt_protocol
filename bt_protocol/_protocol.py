@@ -77,6 +77,18 @@ class TradeBody(msgspec.Struct, frozen=True, tag="trade"):
 
 
 class PositionBody(msgspec.Struct, frozen=True, tag="position"):
+    """Position snapshot message.
+
+    Caliber Note (`pnl` vs `realized_pnl`):
+    * **Engine live snapshot (`bt_core` `Position.serialize`)**: `pnl` is the
+      **total** PnL (`unrealized_pnl + realized_pnl`) for client display, while
+      `realized_pnl` carries the realized bucket separately.
+    * **Database persistence (`vtPosition.serialize`)**: `vtposition.pnl` stores
+      only the **unrealized (floating)** PnL bucket and `vtposition.realized_pnl`
+      stores the **realized** PnL bucket, so `simulate._start` can restore both
+      buckets without double-counting. `pnl_ratio` is computed as
+      `(pnl + realized_pnl) / (size * cost_basis)` when `size * cost_basis > 0`.
+    """
     sid: bytes
     datetime: int
     size: int
@@ -85,7 +97,8 @@ class PositionBody(msgspec.Struct, frozen=True, tag="position"):
     pnl: float
     created_dt: int
     experiment_id: bytes
-    pnl_ratio: float = 0.0  
+    pnl_ratio: float = 0.0
+    realized_pnl: float = 0.0
 
 
 class AccountBody(msgspec.Struct, frozen=True, tag="account"):
@@ -108,8 +121,12 @@ class Empty(msgspec.Struct, frozen=True, tag="empty"):
     pass
 
 
-class ErrMSg(msgspec.Struct, frozen=True, tag="error"):
+class ErrMsg(msgspec.Struct, frozen=True, tag="error"):
     error: str
+
+
+# Backward-compatible alias for legacy callers importing `ErrMSg`.
+ErrMSg = ErrMsg
 
 
 class Sentinel(msgspec.Struct, frozen=True, tag="sentinel"):
@@ -123,7 +140,7 @@ BodyItem = Union[
     AccountBody,
     SnapshotBody,
     Empty,
-    ErrMSg,
+    ErrMsg,
     Sentinel,
 ]
 

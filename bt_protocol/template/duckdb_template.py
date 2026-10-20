@@ -10,24 +10,35 @@ layout or timezone handling changes.
 
 Bind-parameter order for the shared fragment is:
     1. parquet path(s)
-    2. sid list (UNNEST)
+    2. sid list (UNNEST, ``List[str]``)
     3. start datetime (UTC string)
     4. end   datetime (UTC string)
 """
 
-# Shared FROM + WHERE clause. Callers embed this via f-string/str.format and
-# then append any extra predicates (e.g. close > 0), GROUP BY, ORDER BY.
 _BASE_FILTER = """\
     FROM read_parquet(?, hive_partitioning=true, hive_types={'sid': 'VARCHAR'})
     WHERE sid IN (SELECT * FROM UNNEST(?))
       AND datetime BETWEEN (?::TIMESTAMPTZ AT TIME ZONE 'UTC') AND (?::TIMESTAMPTZ AT TIME ZONE 'UTC')
 """
 
-# Shanghai-trading-day column expression used by both CLOSE and DAILY templates.
-# UTC -> TIMESTAMPTZ -> Asia/Shanghai naive TIMESTAMP -> YYYYMMDD integer.
+_VALID_CLOSE_FILTER = "AND close IS NOT NULL AND close > 0"
+
+# Cast `datetime::TIMESTAMP` first so both naive UTC `TIMESTAMP` (2000-2025)
+# and `TIMESTAMPTZ` (2026+) shift +8h to Asia/Shanghai trading day consistently.
 _DAY_COLUMN = (
-    "strftime((datetime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai'), '%Y%m%d')::INTEGER as day"
+    "strftime((datetime::TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai'), '%Y%m%d')::INTEGER as day"
 )
+
+DAILY_AGG_SELECT = f"""
+    CAST(sid AS VARCHAR) AS sid,
+    {_DAY_COLUMN},
+    CAST(round(arg_min(open, datetime)) AS BIGINT) AS open,
+    CAST(round(max(high)) AS BIGINT) AS high,
+    CAST(round(min(low)) AS BIGINT) AS low,
+    CAST(round(arg_max(close, datetime)) AS BIGINT) AS close,
+    CAST(round(sum(volume)) AS DECIMAL(38, 0)) AS volume,
+    CAST(round(sum(amount)) AS DECIMAL(38, 0)) AS amount
+"""
 
 TICK_TEMPLATE = f"""
     SELECT
@@ -43,8 +54,7 @@ CLOSE_TEMPLATE = f"""
         {_DAY_COLUMN},
         arg_max(close, datetime) as close
     {_BASE_FILTER}
-      AND close IS NOT NULL
-      AND close > 0
+      {_VALID_CLOSE_FILTER}
     GROUP BY 1, 2
     ORDER BY 1, 2 ASC
 """
@@ -63,10 +73,39 @@ DAILY_TEMPLATE = f"""
         sum(amount) as amount
 
     {_BASE_FILTER}
-      AND close IS NOT NULL
-      AND close > 0
+      {_VALID_CLOSE_FILTER}
     GROUP BY 1, 2
     ORDER BY sid, day ASC
 """
 
-__all__ = ["TICK_TEMPLATE", "CLOSE_TEMPLATE", "DAILY_TEMPLATE"]
+_PREAGG_DAY_FILTER = """\
+    FROM read_parquet(?, hive_partitioning=false)
+    WHERE sid IN (SELECT * FROM UNNEST(?))
+      AND day BETWEEN strftime((?::TIMESTAMPTZ AT TIME ZONE 'Asia/Shanghai'), '%Y%m%d')::INTEGER
+                  AND strftime((?::TIMESTAMPTZ AT TIME ZONE 'Asia/Shanghai'), '%Y%m%d')::INTEGER
+"""
+
+DAILY_FETCH_TEMPLATE = f"""
+    SELECT
+        CAST(sid AS VARCHAR)::BLOB as sid,
+        day, open, high, low, close, volume, amount
+    {_PREAGG_DAY_FILTER}
+    ORDER BY sid, day ASC
+"""
+
+CLOSE_FETCH_TEMPLATE = f"""
+    SELECT
+        CAST(sid AS VARCHAR)::BLOB as sid,
+        day, close
+    {_PREAGG_DAY_FILTER}
+    ORDER BY 1, 2 ASC
+"""
+
+__all__ = [
+    "TICK_TEMPLATE",
+    "CLOSE_TEMPLATE",
+    "DAILY_TEMPLATE",
+    "DAILY_FETCH_TEMPLATE",
+    "CLOSE_FETCH_TEMPLATE",
+    "DAILY_AGG_SELECT",
+]
