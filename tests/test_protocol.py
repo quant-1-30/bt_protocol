@@ -202,10 +202,23 @@ def test_resp_none_body_roundtrip():
 # ---------------------------------------------------------------------------
 
 def test_grpc_stub_imports_without_runtime_error():
-    # If grpcio < 1.83.0 is installed, the generated _pb2_grpc.py raises
-    # RuntimeError at import time. This test is the CI gate for F-2/D-1.
-    import bt_protocol.serialize.pb.bt_protocol_service_pb2_grpc as grpc_mod  # noqa: F401
+    # If grpcio < GRPC_GENERATED_VERSION is installed, the generated _pb2_grpc.py
+    # raises RuntimeError at import time. Also assert that pyproject.toml's
+    # declared grpcio lower bound is >= GRPC_GENERATED_VERSION so consumers
+    # never resolve an older incompatible runtime.
+    import re
+    import bt_protocol.serialize.pb.bt_protocol_service_pb2_grpc as grpc_mod
     assert hasattr(grpc_mod, "btDataFeedStub")
+
+    gen_ver = tuple(int(x) for x in grpc_mod.GRPC_GENERATED_VERSION.split("."))
+    pyproject_text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^grpcio\s*=\s*"?>=([0-9]+\.[0-9]+\.[0-9]+)', pyproject_text, re.M)
+    assert m, "pyproject.toml must declare a >=X.Y.Z lower bound for grpcio"
+    declared_floor = tuple(int(x) for x in m.group(1).split("."))
+    assert declared_floor >= gen_ver, (
+        f"pyproject.toml grpcio floor {m.group(1)} is lower than "
+        f"GRPC_GENERATED_VERSION {grpc_mod.GRPC_GENERATED_VERSION} in _pb2_grpc.py"
+    )
 
 
 # ---------------------------------------------------------------------------

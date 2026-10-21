@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bt-protocol"
-version = "0.3.0"
-description = "revise protocol core bug with gemini and glm5.3"
+version = "0.3.1"
+description = "Protocol and ORM schema definitions for the quantitative backtest/trading stack"
 authors = ["hengxin.liu <hengxin.liu@inceptio.ai>"]
 readme = "README.md"
 build = "build_ext.py"
@@ -10,15 +10,13 @@ include = [
     "bt_protocol/serialize/pb/*_pb2.py",
     "bt_protocol/serialize/pb/*_pb2_grpc.py",
     "bt_protocol/serialize/pb/*.pyi",
-    { path = "bt_protocol/**/*.so", format = "wheel" },
-    { path = "bt_protocol/**/*.pyx" },
 ]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 # Must align with the versions required by the generated protobuf/grpc stubs
-# (_pb2.py requires protobuf>=7.35.1,<8.0; _pb2_grpc.py enforces grpcio>=1.83.0 at import time).
-grpcio = ">=1.83.0,<2.0"
+# (_pb2.py requires protobuf>=7.35.1,<8.0; _pb2_grpc.py enforces grpcio>=1.84.0 at import time).
+grpcio = ">=1.84.0,<2.0"
 protobuf = ">=7.35.1,<8.0"
 sqlalchemy = "^2.0.47"
 alembic = "^1.15.1"
@@ -37,7 +35,7 @@ priority = "primary"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
-grpcio-tools = ">=1.83.0,<2.0"
+grpcio-tools = ">=1.84.0,<2.0"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -46,6 +44,5 @@ python_files = ["test_*.py"]
 addopts = "-ra"
 
 [build-system]
-requires = ["poetry-core", "wheel", "pybind11", "cmake", "Cython>=3.0", "numpy", "setuptools", "grpcio-tools>=1.83.0,<2.0"] # used to execute build.py
-# build-backend =  "setuptools.build_meta" # 
-build-backend = "poetry.core.masonry.api" # for pure python / scikit-build-core for cmake
+requires = ["poetry-core", "setuptools", "grpcio-tools>=1.84.0,<2.0"]
+build-backend = "poetry.core.masonry.api"

@@ -3,12 +3,12 @@ import sys
 from pathlib import Path
 from grpc_tools import protoc
 import importlib.resources as res
-from setup import get_ext_modules
-
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+from setup import get_ext_modules
 
 
 def compile_protos():
@@ -66,8 +66,20 @@ def patch_grpc_imports(proto_dir):
                 f"expected {new_imp!r} after patching."
             )
 
-def build(setup_kwargs): # poetry build / backend setuptools
-    compile_protos()
+def build(setup_kwargs):  # poetry build / backend setuptools
+    pb_dir = _PROJECT_ROOT / "bt_protocol" / "serialize" / "pb"
+    required = (
+        pb_dir / "bt_protocol_service_pb2.py",
+        pb_dir / "bt_protocol_service_pb2_grpc.py",
+        pb_dir / "bt_protocol_service_pb2.pyi",
+    )
+    # Only invoke protoc during build when the checked-in stubs are missing;
+    # otherwise trust the committed stubs so that the build-machine's
+    # grpcio-tools version never silently drifts GRPC_GENERATED_VERSION.
+    if not all(p.exists() for p in required):
+        compile_protos()
+    else:
+        patch_grpc_imports(pb_dir)
 
     setup_kwargs.update({
         "ext_modules": get_ext_modules()

@@ -61,15 +61,15 @@ poetry run alembic upgrade trade@head
 | 层级 | 依赖 | 版本约束 |
 |------|------|----------|
 | 运行时核心 | `msgspec` | `^0.18.6` |
-| gRPC | `grpcio` | `>=1.83.0,<2.0` |
+| gRPC | `grpcio` | `>=1.84.0,<2.0` |
 | Protobuf | `protobuf` | `>=7.35.1,<8.0` |
 | ORM | `sqlalchemy` | `^2.0.47` |
 | 迁移 | `alembic` | `^1.15.1` |
 | 异步 PG 驱动 | `asyncpg` | `^0.31.0` |
 | greenlet | `greenlet` | `^3.5.1` |
-| 构建期 | `grpcio-tools`, `Cython`, `numpy`, `pybind11`, `cmake` | 仅 `[build-system]` |
+| 构建期 | `grpcio-tools`, `setuptools` | 仅 `[build-system]` |
 
-> **gRPC / Protobuf 版本说明**：生成代码 `bt_protocol_service_pb2.py` 与 `bt_protocol_service_pb2_grpc.py` 在 import 时强制校验 `protobuf >= 7.35.1,<8.0`（upb 高性能 C 内核）与 `grpcio >= 1.83.0`。若消费方安装了更旧版本，import 阶段即报错。
+> **gRPC / Protobuf 版本说明**：生成代码 `bt_protocol_service_pb2.py` 与 `bt_protocol_service_pb2_grpc.py` 在 import 时强制校验 `protobuf >= 7.35.1,<8.0`（upb 高性能 C 内核）与 `grpcio >= 1.84.0`。若消费方安装了更旧版本，import 阶段即报错。
 
 **Poetry 源**：
 
@@ -329,7 +329,7 @@ poetry run alembic downgrade -1       # 回退一步
 | Avro schema | 4 | `.avsc` 文件存在 + JSON 合法 |
 | 公开 API | 2 | 导入完整性 + `__version__` |
 | msgspec round-trip | 12 | Event 请求 + Resp 各 Body |
-| gRPC 导入 | 1 | `_pb2_grpc` 在 `grpcio>=1.83.0` / `protobuf>=7.35.1,<8.0` 下不报错 |
+| gRPC 导入 | 1 | `_pb2_grpc` 在 `grpcio>=1.84.0` / `protobuf>=7.35.1,<8.0` 下不报错 + 声明下限守卫 |
 | FK 唯一性 | 1 | `vtorder.order_id` 单列 UQ 存在 |
 | lazy 策略 | 1 | 所有 `relationship` 禁止默认 `select` |
 | 凭据检查 | 1 | `alembic.ini` 不含明文 |
